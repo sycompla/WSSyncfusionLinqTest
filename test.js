@@ -39,11 +39,13 @@ async function moddleBasic(flowElements, planeElement, filename) {
 
 } // moddleBasic
 
-async function linqTest() {
+async function linqTest(fileName, connectorFileName) {
 
-    let json = fs.readFileSync("./startEventBpmn.json", "utf-8");
+    let json = fs.readFileSync(fileName + ".json", "utf-8");
+    let connectorJson = fs.readFileSync(connectorFileName + ".json", "utf-8");
 
     let nodeArray = JSON.parse(json);
+    let connectorArray = JSON.parse(connectorJson);
 
     console.log(nodeArray);
 
@@ -65,6 +67,15 @@ async function linqTest() {
                     })
                 })
 
+            } else if (node.shape.shape == "Activity") {
+
+                return moddle.create("bpmndi:BPMNShape", {
+                    id: node.id,
+                    bpmnElement: moddle.create("bpmn:Task", {
+                        id: node.id + "Task"
+                    })
+                })
+
             }
 
         }).toArray();
@@ -82,7 +93,7 @@ async function linqTest() {
 
         }).toArray();
 
-    moddleBasic(flowElements, planeElement, "startEvent.xml");
+    moddleBasic(flowElements, planeElement, "./generatedXml/startEvent.xml");
 
 } // linqTest
 
