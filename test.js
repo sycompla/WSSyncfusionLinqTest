@@ -1,12 +1,20 @@
 import fs from 'fs';
+import * as Enumerable from "linq";
 
 async function linqTest() {
 
-    var json = fs.readFileSync("./startEventBpmn.json", "utf-8");
+    let json = fs.readFileSync("./startEventBpmn.json", "utf-8");
 
-    var object = JSON.parse(json);
+    let nodeArray = JSON.parse(json);
 
-    console.log(object);
+    console.log(nodeArray);
+
+    Enumerable.from(nodeArray)
+        .select(function (node) {
+
+            console.log(node);
+
+        })
 
 } // linqTest
 
