@@ -1,10 +1,13 @@
 import fs from 'fs';
 import Enumerable from "linq";
 import BpmnModdel from 'bpmn-moddle';
+import { Ac4yKeyValueMemory } from './Ac4y.js'
 
 const moddle = new BpmnModdel();
 
 async function moddleBasic(flowElements, planeElement, filename) {
+
+    console.log(flowElements, "\n", planeElement);
 
     let definitions = moddle.create("bpmn:Definitions");
 
@@ -47,7 +50,56 @@ async function linqTest(fileName, connectorFileName) {
     let nodeArray = JSON.parse(json);
     let connectorArray = JSON.parse(connectorJson);
 
-    console.log(nodeArray);
+    let flowElementsKeyValueDictionary = new Ac4yKeyValueMemory();
+    let flowElementConnectorsKeyValueDisctionary = new Ac4yKeyValueMemory();
+
+    let flowElements = await Enumerable.from(nodeArray)
+        .select((node) => {
+
+            if(node.shape.shape == "Event" && node.shape.event.event == "Start") {
+
+                return moddle.create("bpmn:StartEvent", {
+                    id: node.id
+                });
+
+            } else if (node.shape.shape == "Activity") {
+
+                return moddle.create("bpmn:Task", {
+                    id: node.id
+                })
+
+            }
+
+        }).toArray(); // flowElements
+
+    flowElements.forEach((element) => {
+
+        flowElementsKeyValueDictionary.put(element.id, element);
+
+    }) // flowElments.forEach()
+
+    let flowElementsConnectors = Enumerable.from(connectorArray)
+        .select((connector) => {
+
+            let sequenceFlow = moddle.create("bpmn:SequenceFlow", {
+                id: connector.id,
+                sourceRef: flowElementsKeyValueDictionary.get(connector.sourceID),
+                targetRef: flowElementsKeyValueDictionary.get(connector.targetID)
+            })
+
+            flowElementsKeyValueDictionary.get(connector.sourceID).outgoing = sequenceFlow;
+
+            flowElementsKeyValueDictionary.get(connector.targetID).incoming = sequenceFlow;
+
+            return sequenceFlow;
+
+        }).toArray(); // flowElementsConnectors
+
+    flowElementsConnectors.forEach((element) => {
+
+        flowElementConnectorsKeyValueDisctionary.put(element.id, element);
+
+    }) // flowElementsConnectors.forEach()
 
     let planeElement = await Enumerable.from(nodeArray)
         .select((node) => {
@@ -55,10 +107,8 @@ async function linqTest(fileName, connectorFileName) {
             if(node.shape.shape == "Event" && node.shape.event.event == "Start") {
 
                 return moddle.create("bpmndi:BPMNShape", {
-                    id: 'startShape',
-                    bpmnElement: moddle.create("bpmn:StartEvent", {
-                        id: 'startEvent'
-                    }),
+                    id: node.id + "Shape",
+                    bpmnElement: flowElementsKeyValueDictionary.get(node.id),
                     bounds: moddle.create("dc:Bounds", {
                         x: node.offsetX,
                         y: node.offsetY,
@@ -70,31 +120,36 @@ async function linqTest(fileName, connectorFileName) {
             } else if (node.shape.shape == "Activity") {
 
                 return moddle.create("bpmndi:BPMNShape", {
-                    id: node.id,
-                    bpmnElement: moddle.create("bpmn:Task", {
-                        id: node.id + "Task"
+                    id: node.id + "Shape",
+                    bpmnElement: flowElementsKeyValueDictionary.get(node.id),
+                    bounds: moddle.create("dc:Bounds", {
+                        x: node.offsetX,
+                        y: node.offsetY,
+                        width: node.width,
+                        height: node.height
                     })
-                })
-
-            }
-
-        }).toArray();
-
-    let flowElements = await Enumerable.from(nodeArray)
-        .select((node) => {
-
-            if(node.shape.shape == "Event" && node.shape.event.event == "Start") {
-
-                return moddle.create("bpmn:StartEvent", {
-                    id: "startEvent"
                 });
 
             }
 
-        }).toArray();
+        }).toArray(); // planeElement
 
-    moddleBasic(flowElements, planeElement, "./generatedXml/startEvent.xml");
+    let planeElementConnectors = Enumerable.from(connectorArray)
+        .select((connector) => {
+
+            return moddle.create("bpmndi:BPMNEdge", {
+                id: connector.id + "Edge",
+                bpmnElement: flowElementConnectorsKeyValueDisctionary.get(connector.id)
+            });
+
+        }).toArray() // planeElementConnectors
+
+    let flowElementsReturn = flowElementsKeyValueDictionary.getArrayFromValues().concat(flowElementConnectorsKeyValueDisctionary.getArrayFromValues());
+
+    let planeElementReturn = planeElement.concat(planeElementConnectors);
+
+    moddleBasic(flowElementsReturn, planeElementReturn, "generatedXml/twoActivityWithOneConnector.xml");
 
 } // linqTest
 
-linqTest();
+linqTest("./json/twoActivityWithConnector", "./json/twoActivityWithConnectorConnectors");

@@ -9385,3 +9385,7 @@ class Ac4yVixClient extends Ac4yEcosystemMember {
     };
 
 } // Ac4yVixClient
+
+export {
+    Ac4yKeyValueMemory
+};
